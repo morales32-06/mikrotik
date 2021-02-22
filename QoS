@@ -1,0 +1,76 @@
+/ip firewall layer7-protocol
+add name=speedtest regexp="^.+(speedtest).*\$"
+add name=facebook regexp="^..+\\.(facebook.com|facebook.net|fbcdn.com|fbsbx.com|fbcdn.net|fb.com|tfbnw.net).*\$"
+/queue tree
+add name=DOWN parent=LAN priority=1
+add name=UP parent=WAN
+add name=">>>>PRIO 1" parent=DOWN priority=1
+add name=">>>>PRIO 2" parent=DOWN priority=2
+add name=speedtest_down packet-mark=speedtest.pkt-down parent=">>>>PRIO 2" priority=2
+add name=">>>>PRIO 3" parent=DOWN priority=3
+add name=juegos_down packet-mark=game.pkt parent=">>>>PRIO 3" priority=3
+add name=">>>>PRIO 4" parent=DOWN priority=4
+add name=httpyhttps_down packet-mark=https.pkt parent=">>>>PRIO 4" priority=4
+add name=whatsapp_down packet-mark=whatsapp.pkt parent=">>>>PRIO 4" priority=4
+add name=">>>>PRIO 6" parent=DOWN priority=6
+add name=facebook_down packet-mark=facebook.pkt parent=">>>>PRIO 6" priority=6
+add name=youtube_down packet-mark=youtube.pkt parent=">>>>PRIO 6" priority=6
+add name=">>>>PRIO 8" parent=DOWN
+add name=resto_down packet-mark=resto.pkt parent=">>>>PRIO 8"
+add name=>>>>PRIO1 parent=UP priority=1
+add name=>>>>PRIO2 parent=UP priority=2
+add name=>>>>PRIO3 parent=UP priority=3
+add name=>>>>PRIO4 parent=UP priority=4
+add name=>>>>PRIO6 parent=UP priority=6
+add name=>>>>PRIO8 parent=UP
+add name=dns_up packet-mark=dns.pkt parent=>>>>PRIO1 priority=1
+add name=icmp_up packet-mark=dns.pkt parent=>>>>PRIO1 priority=1
+add name=speedtest_up packet-mark=speedtest.pkt-up parent=>>>>PRIO2 priority=2
+add name=juegos_up packet-mark=game.pkt parent=>>>>PRIO3 priority=3
+add name=whatsapp_up packet-mark=whatsapp.pkt parent=>>>>PRIO4 priority=4
+add name=httpyhttps_up packet-mark=https.pkt parent=>>>>PRIO4 priority=4
+add name=facebook_up packet-mark=facebook.pkt parent=>>>>PRIO6 priority=6
+add name=youtube_up packet-mark=youtube.pkt parent=>>>>PRIO6 priority=6
+add name=resto_up packet-mark=resto.pkt parent=>>>>PRIO8
+add name=icmp_down packet-mark=icmp.pkt parent=">>>>PRIO 1" priority=1
+add name=dns_down packet-mark=dns.pkt parent=">>>>PRIO 1" priority=1
+
+
+/ip firewall filter
+add action=add-dst-to-address-list address-list=youtube address-list-timeout=12h chain=forward comment="Guarda las ip de youtube" content=youtube.com src-address-list=Clientes
+add action=add-dst-to-address-list address-list=youtube address-list-timeout=12h chain=forward content=googlevideo.com src-address-list=Clientes
+add action=add-dst-to-address-list address-list=youtube address-list-timeout=12h chain=forward content=youtu.be src-address-list=Clientes
+add action=add-dst-to-address-list address-list=youtube address-list-timeout=12h chain=forward content=akamaihd.net src-address-list=Clientes
+
+/ip firewall mangle
+add action=mark-connection chain=forward comment="Marcado de ICMP" new-connection-mark=icmp.conn passthrough=yes protocol=icmp
+add action=mark-packet chain=prerouting connection-mark=icmp.conn new-packet-mark=icmp.pkt passthrough=no
+add action=mark-connection chain=prerouting comment="Marcado DNS" dst-port=53 new-connection-mark=dns.conn passthrough=yes protocol=udp
+add action=mark-packet chain=prerouting connection-mark=dns.conn new-packet-mark=dns.pkt passthrough=no
+add action=mark-connection chain=prerouting comment="Marcado SpeedTest" layer7-protocol=speedtest new-connection-mark=speedtest.conn passthrough=yes
+add action=mark-connection chain=prerouting dst-port=8080 new-connection-mark=speedtest.conn protocol=tcp
+add action=mark-connection chain=postrouting new-connection-mark=speedtest.conn protocol=tcp src-port=8080
+add action=mark-packet chain=prerouting connection-mark=speedtest.conn new-packet-mark=speedtest.pkt-up passthrough=no src-address-list=Clientes
+add action=mark-packet chain=prerouting connection-mark=speedtest.conn dst-address-list=Clientes new-packet-mark=speedtest.pkt-down passthrough=no
+add action=mark-packet chain=postrouting connection-mark=speedtest.conn new-packet-mark=speedtest.pkt-up passthrough=no src-address-list=Clientes
+add action=mark-packet chain=postrouting connection-mark=speedtest.conn dst-address-list=Clientes new-packet-mark=speedtest.pkt-down passthrough=no
+add action=mark-connection chain=prerouting comment="Marcado de GAME" new-connection-mark=game.conn passthrough=yes port=10000-11008,7008,9000-9099,7700,1900,17000,65050 protocol=udp
+add action=mark-connection chain=prerouting new-connection-mark=game.conn passthrough=yes port="7500,65010,8700,3013,7703,7520,7535,7752,20000-20099,12235,13748,13972,13894,11455" protocol=udp
+add action=mark-connection chain=prerouting new-connection-mark=game.conn passthrough=yes port=88,500,3074,3544,4500,3075,4379-4380,27000-27031,27036,7542,7608 protocol=udp
+add action=mark-connection chain=prerouting new-connection-mark=game.conn passthrough=yes port=14009-14030,42051-42052,40000-40050,13000-13080 protocol=udp
+add action=mark-connection chain=prerouting new-connection-mark=game.conn passthrough=yes port=39190,27780,29000,22100,4300,15001,15002,7341 protocol=tcp
+add action=mark-connection chain=prerouting new-connection-mark=game.conn passthrough=yes port=5340-5352,6000-6152,14009-14030,18901-18909 protocol=tcp
+add action=mark-connection chain=prerouting new-connection-mark=game.conn passthrough=yes port=40000,9300,9400,9700,7342,8005-8010,37466,36567,8822 protocol=tcp
+add action=mark-packet chain=prerouting connection-mark=game.conn new-packet-mark=game.pkt passthrough=no
+add action=mark-connection chain=prerouting comment="Marcado de whatsapp" new-connection-mark=wahtsapp.conn passthrough=yes port=5222,5223,5228,4244,5242,50318,59234 protocol=tcp
+add action=mark-connection chain=prerouting new-connection-mark=wahtsapp.conn passthrough=yes port=3478,54395,59234,50318 protocol=udp
+add action=mark-packet chain=prerouting connection-mark=wahtsapp.conn new-packet-mark=whatsapp.pkt passthrough=no
+add action=mark-connection chain=prerouting comment="Macrado de Facebook" layer7-protocol=facebook new-connection-mark=facebook.conn passthrough=yes
+add action=mark-packet chain=prerouting connection-mark=facebook.conn new-packet-mark=facebook.pkt passthrough=no
+add action=mark-connection chain=prerouting comment="Marcado de youtube" new-connection-mark=youtube.conn passthrough=yes src-address-list=youtube
+add action=mark-packet chain=prerouting connection-mark=youtube.conn new-packet-mark=youtube.pkt passthrough=no
+add action=mark-connection chain=prerouting comment="Marcado de WWW" new-connection-mark=https.conn passthrough=yes port=443 protocol=udp
+add action=mark-connection chain=prerouting new-connection-mark=https.conn passthrough=yes port=80,443 protocol=tcp
+add action=mark-packet chain=prerouting connection-mark=https.conn new-packet-mark=https.pkt passthrough=no
+add action=mark-connection chain=prerouting comment="Marcado resto del trafico" new-connection-mark=resto.conn passthrough=yes
+add action=mark-packet chain=prerouting connection-mark=resto.conn new-packet-mark=resto.pkt passthrough=no
